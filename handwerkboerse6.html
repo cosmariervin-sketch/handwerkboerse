@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="google-site-verification" content="4TjVArM9McCNkuXLqdi9JCqGRzkVMsaScaSSIfZHcTs" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HandwerkBörse – Kostenlos inserieren</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;font-family:'Inter',sans-serif;background:#F5F2EE;color:#1a1a1a}
+#root{min-height:100vh}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#F5F2EE}
+::-webkit-scrollbar-thumb{background:#D1CBC0;border-radius:3px}
+input,select,textarea,button{font-family:'Inter',sans-serif}
+.syne{font-family:'Inter',sans-serif;font-weight:800}
+@keyframes fadein{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slidein{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef} = React;
+
+const A="#E8820C", AL="#FEF3E2", N="#14213D", G="#F5F2EE";
+const LS_L="hwb_listings_v2", LS_M="hwb_messages_v2", LS_MINE="hwb_mine_v2";
+
+const CATS=[
+  {id:"all",label:"Alle",icon:"⊞"},
+  {id:"reno",label:"Renovierung",icon:""},
+  {id:"umzug",label:"Umzug",icon:""},
+  {id:"garten",label:"Garten",icon:""},
+  {id:"elektro",label:"Elektrik",icon:""},
+  {id:"sanitaer",label:"Sanitär",icon:""},
+  {id:"reinigung",label:"Reinigung",icon:""},
+  {id:"it",label:"IT & PC",icon:""},
+  {id:"transport",label:"Transport",icon:""},
+];
+
+const SAMPLE=[];
+
+/* ── helpers ── */
+const load=(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
+const uid=()=>Math.random().toString(36).slice(2,10);
+const ini=n=>n.trim().split(/\s+/).map(w=>w[0]||"").join("").toUpperCase().slice(0,2)||"?";
+const ago=ts=>{const d=Date.now()-ts;if(d<60000)return"gerade eben";if(d<3600000)return`vor ${Math.floor(d/60000)} Min.`;if(d<86400000)return`vor ${Math.floor(d/3600000)} Std.`;if(d<604800000)return`vor ${Math.floor(d/86400000)} Tagen`;return new Date(ts).toLocaleDateString("de-DE");};
+
+/* ── Avatar ── */
+const BGS=["#DBEAFE","#FCE7F3","#DCFCE7","#FEF3C7","#EDE9FE","#FFEDD5","#F0FDF4","#F0F9FF","#FFF7ED","#ECFDF5"];
+const FGS=["#1E40AF","#9D174D","#166534","#92400E","#5B21B6","#C2410C","#15803D","#0369A1","#9A3412","#065F46"];
+function Av({name,size=40}){const i=(name.charCodeAt(0)||0)%10;return<div style={{width:size,height:size,borderRadius:"50%",background:BGS[i],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:600,fontSize:size*.36,color:FGS[i],flexShrink:0}}>{ini(name)}</div>;}
+
+/* ── Button ── */
+function Btn({ch,onClick,v="primary",sm=false,disabled=false,full=false}){
+  const S={primary:{background:A,color:"#fff",border:`2px solid ${A}`},navy:{background:N,color:"#fff",border:`2px solid ${N}`},outline:{background:"transparent",color:N,border:`2px solid ${N}`},ghost:{background:"transparent",color:"#6B6860",border:"2px solid #D1CBC0"},danger:{background:"transparent",color:"#DC2626",border:"2px solid #FCA5A5"}};
+  return<button disabled={disabled} onClick={onClick} style={{...S[v],padding:sm?"7px 14px":"11px 22px",borderRadius:9,fontSize:sm?13:14,fontWeight:600,cursor:disabled?"not-allowed":"pointer",opacity:disabled?.5:1,width:full?"100%":undefined,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,transition:"opacity .15s"}} onMouseDown={e=>!disabled&&(e.currentTarget.style.opacity=".8")} onMouseUp={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>{ch}</button>;
+}
+
+/* ── Field ── */
+function Field({label,value,onChange,type="text",ph="",rows=0,req=false,hint}){
+  const base={width:"100%",border:"1.5px solid #D8D3CA",borderRadius:8,padding:"10px 13px",fontSize:14,color:N,background:"#FAFAF8",outline:"none",transition:"border-color .15s",resize:rows?"vertical":undefined};
+  const fo=e=>e.target.style.borderColor=A;const bl=e=>e.target.style.borderColor="#D8D3CA";
+  return<div style={{marginBottom:14}}>
+    <label style={{display:"block",fontSize:13,fontWeight:500,color:"#4B4843",marginBottom:4}}>{label}{req&&<span style={{color:A}}> *</span>}</label>
+    {hint&&<p style={{fontSize:11,color:"#9B9690",marginBottom:5}}>{hint}</p>}
+    {rows>0?<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} rows={rows} style={base} onFocus={fo} onBlur={bl}/>:<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} style={base} onFocus={fo} onBlur={bl}/>}
+  </div>;
+}
+function Sel({label,value,onChange,opts,req=false}){
+  return<div style={{marginBottom:14}}>
+    <label style={{display:"block",fontSize:13,fontWeight:500,color:"#4B4843",marginBottom:4}}>{label}{req&&<span style={{color:A}}> *</span>}</label>
+    <select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",border:"1.5px solid #D8D3CA",borderRadius:8,padding:"10px 13px",fontSize:14,color:N,background:"#FAFAF8",outline:"none"}}>{opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
+  </div>;
+}
+
+/* ── Image upload ── */
+function ImgUp({value,onChange}){
+  const ref=useRef();
+  const handle=e=>{const f=e.target.files[0];if(!f)return;if(f.size>2097152){alert("Bild max. 2 MB!");return;}const r=new FileReader();r.onload=ev=>onChange(ev.target.result);r.readAsDataURL(f);};
+  return<div style={{marginBottom:14}}>
+    <label style={{display:"block",fontSize:13,fontWeight:500,color:"#4B4843",marginBottom:4}}>Foto <span style={{fontWeight:400,color:"#9B9690"}}>(optional, max. 2 MB)</span></label>
+    {value?<div style={{position:"relative",display:"block"}}><img src={value} alt="" style={{width:"100%",maxHeight:180,objectFit:"cover",borderRadius:8,border:"1.5px solid #D8D3CA"}}/><button onClick={()=>onChange(null)} style={{position:"absolute",top:6,right:6,background:"rgba(0,0,0,.55)",border:"none",color:"#fff",width:26,height:26,borderRadius:"50%",cursor:"pointer",fontSize:14}}></button></div>
+    :<div onClick={()=>ref.current.click()} style={{border:"2px dashed #D8D3CA",borderRadius:8,padding:"22px",textAlign:"center",cursor:"pointer",background:"#FAFAF8",transition:"border-color .15s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=A} onMouseLeave={e=>e.currentTarget.style.borderColor="#D8D3CA"}><p style={{fontSize:22,marginBottom:4}}></p><p style={{fontSize:13,color:"#6B6860"}}>Klicken zum Hochladen</p><p style={{fontSize:11,color:"#9B9690"}}>JPG oder PNG</p></div>}
+    <input ref={ref} type="file" accept="image/*" onChange={handle} style={{display:"none"}}/>
+  </div>;
+}
+
+/* ── Chips ── */
+function Bdg({type}){return type==="auftrag"?<span style={{background:AL,color:A,fontSize:11,fontWeight:600,padding:"2px 9px",borderRadius:20,border:"1px solid #FCD34D"}}>AUFTRAG</span>:<span style={{background:"#DCFCE7",color:"#166534",fontSize:11,fontWeight:600,padding:"2px 9px",borderRadius:20,border:"1px solid #86EFAC"}}>ANGEBOT</span>;}
+function Urg(){return<span style={{background:"#FEE2E2",color:"#DC2626",fontSize:11,fontWeight:600,padding:"2px 9px",borderRadius:20}}>DRINGEND</span>;}
+
+/* ── Card ── */
+function Card({l,msgs,onClick}){
+  const cat=CATS.find(c=>c.id===l.category)||CATS[0];
+  const mc=msgs.filter(m=>m.listingId===l.id).length;
+  const [ho,setHo]=useState(false);
+  return<div onClick={()=>onClick(l)} onMouseEnter={()=>setHo(true)} onMouseLeave={()=>setHo(false)} style={{background:"#fff",borderRadius:14,border:"1px solid #E8E4DD",overflow:"hidden",cursor:"pointer",boxShadow:ho?"0 6px 28px rgba(0,0,0,.10)":"none",transform:ho?"translateY(-3px)":"none",transition:"all .18s",display:"flex",flexDirection:"column"}}>
+    {l.image&&<img src={l.image} alt={l.title} style={{width:"100%",height:150,objectFit:"cover"}}/>}
+    <div style={{padding:"16px 18px",flex:1,display:"flex",flexDirection:"column"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}><div style={{display:"flex",gap:5,flexWrap:"wrap"}}><Bdg type={l.type}/>{l.urgent&&<Urg/>}</div><span style={{fontSize:18}}>{cat.icon}</span></div>
+      <h3 className="syne" style={{fontSize:15,color:N,lineHeight:1.3,marginBottom:7}}>{l.title}</h3>
+      <p style={{fontSize:13,color:"#6B6860",lineHeight:1.65,flex:1,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{l.desc}</p>
+      <div style={{borderTop:"1px solid #F0EDE8",paddingTop:11,marginTop:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{display:"flex",alignItems:"center",gap:7}}><Av name={l.author} size={26}/><div><p style={{fontSize:12,fontWeight:500,color:N}}>{l.author}</p><p style={{fontSize:11,color:"#9B9690"}}>{l.city} · {ago(l.ts)}</p></div></div>
+        <div style={{textAlign:"right"}}><p style={{fontSize:13,fontWeight:600,color:A}}>{l.budget||"Auf Anfrage"}</p><p style={{fontSize:11,color:"#9B9690"}}>{mc} Anfragen</p></div>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── Create / Edit Modal ── */
+function CreateModal({onClose,onSave,edit=null}){
+  const [f,setF]=useState(edit?{...edit}:{title:"",category:"reno",type:"auftrag",city:"",zip:"",budget:"",desc:"",author:"",phone:"",email:"",urgent:false,image:null});
+  const set=k=>v=>setF(p=>({...p,[k]:v}));
+  const valid=f.title.trim()&&f.city.trim()&&f.desc.trim()&&f.author.trim()&&(f.phone.trim()||f.email.trim());
+  return<div style={{position:"fixed",inset:0,background:"rgba(20,33,61,.65)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:28,zIndex:1000,overflowY:"auto"}}>
+    <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:580,margin:"0 16px 48px",border:"1px solid #E8E4DD",animation:"slidein .2s"}}>
+      <div style={{background:N,padding:"20px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"16px 16px 0 0"}}>
+        <span className="syne" style={{color:"#fff",fontSize:18}}>{edit?"Inserat bearbeiten":"Neues Inserat erstellen"}</span>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#fff",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18}}></button>
+      </div>
+      <div style={{padding:24,maxHeight:"78vh",overflowY:"auto"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Sel label="Art" value={f.type} onChange={set("type")} opts={[{v:"auftrag",l:" Auftrag – ich suche"},{v:"angebot",l:" Angebot – ich biete"}]}/>
+          <Sel label="Kategorie" value={f.category} onChange={set("category")} req opts={CATS.filter(c=>c.id!=="all").map(c=>({v:c.id,l:`${c.icon} ${c.label}`}))}/>
+        </div>
+        <Field label="Titel" value={f.title} onChange={set("title")} ph='z.B. "Boden verlegen 30m²"' req/>
+        <Field label="Beschreibung" value={f.desc} onChange={set("desc")} rows={4} ph="Details: Was genau? Wann? Welche Anforderungen?" req/>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10}}>
+          <Field label="Stadt" value={f.city} onChange={set("city")} ph="Frankfurt" req/>
+          <Field label="PLZ" value={f.zip} onChange={set("zip")} ph="60311"/>
+        </div>
+        <Field label="Budget / Stundenlohn" value={f.budget} onChange={set("budget")} ph="z.B. 200–400€ oder ab 30€/h"/>
+        <ImgUp value={f.image} onChange={set("image")}/>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,padding:"10px 14px",background:"#FEF3E2",borderRadius:8,cursor:"pointer"}} onClick={()=>set("urgent")(!f.urgent)}>
+          <div style={{width:20,height:20,borderRadius:4,background:f.urgent?"#DC2626":"#fff",border:`2px solid ${f.urgent?"#DC2626":"#D8D3CA"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{f.urgent&&<span style={{color:"#fff",fontSize:11}}></span>}</div>
+          <span style={{fontSize:13,color:"#4B4843"}}> Als <strong>dringend</strong> markieren</span>
+        </div>
+        <div style={{height:1,background:"#F0EDE8",margin:"0 0 16px"}}/>
+        <p style={{fontSize:13,fontWeight:600,color:N,marginBottom:4}}>Deine Kontaktdaten</p>
+        <p style={{fontSize:12,color:"#9B9690",marginBottom:12}}>Werden Interessenten angezeigt – mindestens Telefon oder E-Mail angeben.</p>
+        <Field label="Name / Firma" value={f.author} onChange={set("author")} ph="Max Mustermann" req/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Field label="Telefon" value={f.phone} onChange={set("phone")} type="tel" ph="0170 1234567"/>
+          <Field label="E-Mail" value={f.email} onChange={set("email")} type="email" ph="max@mail.de"/>
+        </div>
+        {!f.phone.trim()&&!f.email.trim()&&<p style={{fontSize:12,color:"#DC2626",marginTop:-8,marginBottom:12}}> Bitte Telefon oder E-Mail angeben.</p>}
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
+          <Btn ch="Abbrechen" v="ghost" onClick={onClose}/>
+          <Btn ch={<>{edit?"Änderungen speichern ":"Inserat veröffentlichen "}</>} onClick={()=>{if(valid){onSave(f);onClose();}}} disabled={!valid}/>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── Contact Modal ── */
+function ContactModal({l,onClose,onSent}){
+  const [name,setName]=useState("");
+  const [phone,setPhone]=useState("");
+  const [email,setEmail]=useState("");
+  const [msg,setMsg]=useState("");
+  const [sent,setSent]=useState(false);
+  const valid=name.trim()&&msg.trim()&&(phone.trim()||email.trim());
+  const send=()=>{if(!valid)return;onSent({id:uid(),listingId:l.id,from:name,phone,email,text:msg,ts:Date.now(),read:false});setSent(true);};
+  return<div style={{position:"fixed",inset:0,background:"rgba(20,33,61,.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1100,padding:16}}>
+    <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:500,border:"1px solid #E8E4DD",maxHeight:"90vh",overflow:"auto",animation:"slidein .2s"}}>
+      <div style={{background:N,padding:"18px 22px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"16px 16px 0 0"}}>
+        <span className="syne" style={{color:"#fff",fontSize:16}}>Kontakt aufnehmen</span>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#fff",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16}}></button>
+      </div>
+      <div style={{padding:22}}>
+        {sent?<div style={{textAlign:"center",padding:"28px 0"}}>
+          <div style={{fontSize:56,marginBottom:14}}></div>
+          <h3 className="syne" style={{color:N,marginBottom:8,fontSize:20}}>Nachricht gesendet!</h3>
+          <p style={{color:"#6B6860",fontSize:14,marginBottom:16}}>Du hast <strong>{l.author}</strong> kontaktiert. Hier sind seine Kontaktdaten – melde dich direkt:</p>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+            {l.phone&&<a href={`tel:${l.phone}`} style={{background:"#DCFCE7",color:"#166534",fontSize:14,fontWeight:600,padding:"10px 16px",borderRadius:9,display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}> {l.phone} anrufen</a>}
+            {l.email&&<a href={`mailto:${l.email}`} style={{background:"#DBEAFE",color:"#1E40AF",fontSize:14,fontWeight:600,padding:"10px 16px",borderRadius:9,display:"flex",alignItems:"center",gap:8,textDecoration:"none"}}> {l.email} schreiben</a>}
+          </div>
+          <Btn ch="Schließen" v="ghost" onClick={onClose}/>
+        </div>:<>
+          <div style={{background:AL,borderRadius:10,padding:"12px 14px",marginBottom:18,display:"flex",gap:10,alignItems:"center"}}>
+            {l.image&&<img src={l.image} alt="" style={{width:52,height:52,borderRadius:8,objectFit:"cover",flexShrink:0}}/>}
+            <div><p style={{fontSize:13,fontWeight:600,color:N}}>{l.title}</p><p style={{fontSize:12,color:"#6B6860"}}>von {l.author} · {l.city}</p>{l.budget&&<p style={{fontSize:12,color:A,fontWeight:600}}>{l.budget}</p>}</div>
+          </div>
+          <p style={{fontSize:13,fontWeight:600,color:N,marginBottom:12}}>Deine Kontaktdaten</p>
+          <Field label="Dein Name" value={name} onChange={setName} ph="Vorname Nachname" req/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Field label="Telefon" value={phone} onChange={setPhone} type="tel" ph="0170 …"/>
+            <Field label="E-Mail" value={email} onChange={setEmail} type="email" ph="du@mail.de"/>
+          </div>
+          {!phone.trim()&&!email.trim()&&<p style={{fontSize:12,color:"#DC2626",marginTop:-8,marginBottom:12}}> Telefon oder E-Mail angeben</p>}
+          <Field label="Nachricht" value={msg} onChange={setMsg} rows={4} ph="Hallo, ich interessiere mich für Ihr Inserat..." req/>
+          <div style={{background:"#F0EDE8",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:13}}>
+            <p style={{fontWeight:600,color:N,marginBottom:4}}> Kontaktdaten des Inserenten</p>
+            {l.phone&&<p style={{color:"#4B4843",marginBottom:2}}> {l.phone}</p>}
+            {l.email&&<p style={{color:"#4B4843"}}> {l.email}</p>}
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <Btn ch="Abbrechen" v="ghost" sm onClick={onClose}/>
+            <Btn ch=" Nachricht senden" onClick={send} disabled={!valid}/>
+          </div>
+        </>}
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── Inbox ── */
+function Inbox({myListings,messages,onClose,onDelMsg}){
+  const [sel,setSel]=useState(myListings[0]?.id||null);
+  const selL=myListings.find(l=>l.id===sel);
+  const selMsgs=messages.filter(m=>m.listingId===sel).sort((a,b)=>b.ts-a.ts);
+  const totalNew=messages.filter(m=>myListings.some(l=>l.id===m.listingId)&&!m.read).length;
+  return<div style={{position:"fixed",inset:0,background:"rgba(20,33,61,.65)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:28,zIndex:1000,overflowY:"auto"}}>
+    <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:740,margin:"0 16px 48px",border:"1px solid #E8E4DD",animation:"slidein .2s"}}>
+      <div style={{background:N,padding:"20px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"16px 16px 0 0"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span className="syne" style={{color:"#fff",fontSize:18}}> Meine Inserate & Postfach</span>
+          {totalNew>0&&<span style={{background:A,color:"#fff",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20}}>{totalNew} neu</span>}
+        </div>
+        <button onClick={onClose} style={{background:"rgba(255,255,255,.15)",border:"none",color:"#fff",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:18}}></button>
+      </div>
+      {myListings.length===0?<div style={{padding:44,textAlign:"center"}}>
+        <div style={{fontSize:52,marginBottom:14}}></div>
+        <h3 className="syne" style={{color:N,marginBottom:8}}>Noch keine eigenen Inserate</h3>
+        <p style={{color:"#6B6860",fontSize:14}}>Erstelle dein erstes Inserat und empfange Anfragen direkt hier.</p>
+      </div>:<div style={{display:"grid",gridTemplateColumns:"220px 1fr",minHeight:420}}>
+        <div style={{borderRight:"1px solid #F0EDE8",padding:"8px 0",overflowY:"auto",maxHeight:560}}>
+          {myListings.map(l=>{
+            const mc=messages.filter(m=>m.listingId===l.id).length;
+            const unread=messages.filter(m=>m.listingId===l.id&&!m.read).length;
+            return<div key={l.id} onClick={()=>setSel(l.id)} style={{padding:"12px 16px",cursor:"pointer",background:sel===l.id?AL:"transparent",borderLeft:sel===l.id?`3px solid ${A}`:"3px solid transparent",transition:"background .15s"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <p style={{fontSize:13,fontWeight:600,color:N,lineHeight:1.3,flex:1,marginRight:6}}>{l.title}</p>
+                {unread>0&&<span style={{background:A,color:"#fff",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:20,flexShrink:0}}>{unread}</span>}
+              </div>
+              <p style={{fontSize:11,color:"#9B9690",marginTop:3}}>{l.city} · {mc} Nachricht{mc!==1?"en":""}</p>
+              <div style={{marginTop:4,display:"flex",gap:4}}><Bdg type={l.type}/></div>
+            </div>;
+          })}
+        </div>
+        <div style={{padding:"16px 20px",overflowY:"auto",maxHeight:560}}>
+          {selL&&<div style={{marginBottom:14,paddingBottom:12,borderBottom:"1px solid #F0EDE8"}}>
+            <p style={{fontSize:14,fontWeight:600,color:N}}>{selL.title}</p>
+            <p style={{fontSize:12,color:"#9B9690",marginTop:2}}>{selL.city} · {selL.budget||"Auf Anfrage"}</p>
+          </div>}
+          {selMsgs.length===0?<div style={{textAlign:"center",padding:"32px 0",color:"#9B9690"}}>
+            <div style={{fontSize:36,marginBottom:8}}></div>
+            <p style={{fontSize:14}}>Noch keine Anfragen für dieses Inserat.</p>
+            <p style={{fontSize:12,marginTop:6}}>Teile deinen Link, um mehr Reichweite zu bekommen.</p>
+          </div>:selMsgs.map(m=><div key={m.id} style={{background:m.read?"#FAFAF8":AL,borderRadius:10,border:`1px solid ${m.read?"#E8E4DD":"#FCD34D"}`,padding:"14px 16px",marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <Av name={m.from} size={32}/>
+                <div><p style={{fontSize:13,fontWeight:600,color:N}}>{m.from}</p><p style={{fontSize:11,color:"#9B9690"}}>{ago(m.ts)}</p></div>
+              </div>
+              <button onClick={()=>onDelMsg(m.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#D1CBC0",fontSize:16,padding:"2px 4px"}} title="Löschen"></button>
+            </div>
+            <p style={{fontSize:13,color:"#333",lineHeight:1.75,marginBottom:10,background:"#fff",borderRadius:8,padding:"10px 12px",border:"1px solid #F0EDE8"}}>{m.text}</p>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {m.phone&&<a href={`tel:${m.phone}`} style={{background:"#DCFCE7",color:"#166534",fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:20,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:5}}> {m.phone} anrufen</a>}
+              {m.email&&<a href={`mailto:${m.email}`} style={{background:"#DBEAFE",color:"#1E40AF",fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:20,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:5}}> {m.email} schreiben</a>}
+            </div>
+          </div>)}
+        </div>
+      </div>}
+    </div>
+  </div>;
+}
+
+/* ── Delete confirm ── */
+function DelConfirm({onOk,onCancel}){
+  return<div style={{position:"fixed",inset:0,background:"rgba(20,33,61,.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1200,padding:16}}>
+    <div style={{background:"#fff",borderRadius:14,padding:28,maxWidth:360,width:"100%",border:"1px solid #E8E4DD",textAlign:"center",animation:"slidein .2s"}}>
+      <div style={{fontSize:44,marginBottom:12}}></div>
+      <h3 className="syne" style={{color:N,marginBottom:8}}>Inserat löschen?</h3>
+      <p style={{color:"#6B6860",fontSize:14,marginBottom:22}}>Diese Aktion kann nicht rückgängig gemacht werden.</p>
+      <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+        <Btn ch="Abbrechen" v="ghost" onClick={onCancel}/>
+        <Btn ch=" Ja, löschen" v="danger" onClick={onOk}/>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── Detail ── */
+function Detail({l,msgs,isMine,onBack,onContact,onEdit,onDelete}){
+  const cat=CATS.find(c=>c.id===l.category)||CATS[0];
+  const mc=msgs.filter(m=>m.listingId===l.id).length;
+  const [showDel,setShowDel]=useState(false);
+  return<div style={{maxWidth:780,margin:"0 auto",padding:"0 16px 60px"}}>
+    {showDel&&<DelConfirm onOk={()=>{onDelete(l.id);onBack();}} onCancel={()=>setShowDel(false)}/>}
+    <button onClick={onBack} style={{background:"none",border:"none",color:"#6B6860",cursor:"pointer",fontSize:14,padding:"18px 0",display:"flex",alignItems:"center",gap:6}}>← Zurück zur Übersicht</button>
+    <div style={{background:"#fff",borderRadius:16,border:"1px solid #E8E4DD",overflow:"hidden"}}>
+      {l.image&&<img src={l.image} alt={l.title} style={{width:"100%",maxHeight:340,objectFit:"cover"}}/>}
+      <div style={{background:N,padding:"28px 32px 26px"}}>
+        <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+          <Bdg type={l.type}/>{l.urgent&&<Urg/>}
+          <span style={{background:"rgba(255,255,255,.12)",color:"#E0DCD5",fontSize:11,fontWeight:600,padding:"2px 9px",borderRadius:20}}>{cat.icon} {cat.label}</span>
+          {isMine&&<span style={{background:"rgba(232,130,12,.3)",color:A,fontSize:11,fontWeight:600,padding:"2px 9px",borderRadius:20}}> Mein Inserat</span>}
+        </div>
+        <h1 className="syne" style={{color:"#fff",fontSize:24,lineHeight:1.2,marginBottom:12}}>{l.title}</h1>
+        <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
+          <span style={{color:"#9CA3AF",fontSize:13}}>{l.city} {l.zip}</span>
+          <span style={{color:"#9CA3AF",fontSize:13}}>{ago(l.ts)}</span>
+          <span style={{color:"#9CA3AF",fontSize:13}}>{mc} Anfragen</span>
+        </div>
+      </div>
+      <div style={{padding:"28px 32px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 170px",gap:28,marginBottom:24,alignItems:"start"}}>
+          <div>
+            <p style={{fontSize:11,fontWeight:600,color:"#9B9690",textTransform:"uppercase",letterSpacing:.6,marginBottom:10}}>Beschreibung</p>
+            <p style={{fontSize:15,color:"#333",lineHeight:1.85,whiteSpace:"pre-wrap"}}>{l.desc}</p>
+          </div>
+          <div style={{background:AL,borderRadius:12,padding:"18px 16px",textAlign:"center"}}>
+            <p style={{fontSize:11,color:"#92400E",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Budget</p>
+            <p className="syne" style={{fontSize:22,color:A,marginTop:6}}>{l.budget||"Auf Anfrage"}</p>
+          </div>
+        </div>
+
+        {/* Contact card */}
+        <div style={{background:"#F8F7F4",borderRadius:12,padding:"18px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:14}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <Av name={l.author} size={46}/>
+            <div>
+              <p style={{fontWeight:600,color:N,fontSize:15}}>{l.author}</p>
+              <div style={{display:"flex",gap:10,marginTop:5,flexWrap:"wrap"}}>
+                {l.phone&&<a href={`tel:${l.phone}`} style={{fontSize:13,color:"#166534",fontWeight:500,textDecoration:"none",background:"#DCFCE7",padding:"3px 10px",borderRadius:20}}> {l.phone}</a>}
+                {l.email&&<a href={`mailto:${l.email}`} style={{fontSize:13,color:"#1E40AF",fontWeight:500,textDecoration:"none",background:"#DBEAFE",padding:"3px 10px",borderRadius:20}}> {l.email}</a>}
+              </div>
+            </div>
+          </div>
+          {isMine?<div style={{display:"flex",gap:8}}>
+            <Btn ch=" Bearbeiten" v="outline" sm onClick={()=>onEdit(l)}/>
+            <Btn ch=" Löschen" v="danger" sm onClick={()=>setShowDel(true)}/>
+          </div>:<Btn ch=" Jetzt kontaktieren" onClick={onContact}/>}
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── Toast ── */
+function Toast({msg}){return msg?<div style={{position:"fixed",top:20,right:20,background:N,color:"#fff",padding:"13px 20px",borderRadius:10,fontSize:14,fontWeight:500,zIndex:9999,boxShadow:"0 4px 20px rgba(0,0,0,.25)",animation:"fadein .3s"}}>{msg}</div>:null;}
+
+/* ─────────────────────────────────────────────────────────────── */
+/*  MAIN APP                                                        */
+/* ─────────────────────────────────────────────────────────────── */
+function App(){
+  const [listings,setListings]=useState(()=>load(LS_L,SAMPLE));
+  const [messages,setMessages]=useState(()=>load(LS_M,[]));
+  const [mineIds,setMineIds]=useState(()=>load(LS_MINE,[]));
+  const [view,setView]=useState("list");
+  const [selected,setSelected]=useState(null);
+  const [cat,setCat]=useState("all");
+  const [search,setSearch]=useState("");
+  const [showCreate,setShowCreate]=useState(false);
+  const [editL,setEditL]=useState(null);
+  const [showContact,setShowContact]=useState(false);
+  const [showInbox,setShowInbox]=useState(false);
+  const [toast,setToast]=useState(null);
+
+  useEffect(()=>save(LS_L,listings),[listings]);
+  useEffect(()=>save(LS_M,messages),[messages]);
+  useEffect(()=>save(LS_MINE,mineIds),[mineIds]);
+  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(null),3500);return()=>clearTimeout(t);},[toast]);
+
+  const filtered=listings.filter(l=>{
+    if(cat!=="all"&&l.category!==cat)return false;
+    const q=search.toLowerCase();
+    return !q||[l.title,l.desc,l.city,l.author].some(s=>s.toLowerCase().includes(q));
+  });
+
+  const myListings=listings.filter(l=>mineIds.includes(l.id));
+  const unread=messages.filter(m=>myListings.some(l=>l.id===m.listingId)&&!m.read).length;
+
+  const handleSave=f=>{const id=uid();setListings(ls=>[{...f,id,ts:Date.now()},...ls]);setMineIds(ids=>[...ids,id]);setToast(" Inserat veröffentlicht!");};
+  const handleEdit=f=>{setListings(ls=>ls.map(l=>l.id===editL.id?{...l,...f}:l));if(selected?.id===editL.id)setSelected(s=>({...s,...f}));setEditL(null);setToast(" Inserat aktualisiert!");};
+  const handleDelete=id=>{setListings(ls=>ls.filter(l=>l.id!==id));setMineIds(i=>i.filter(x=>x!==id));setMessages(ms=>ms.filter(m=>m.listingId!==id));setToast(" Inserat gelöscht.");};
+  const handleSent=m=>{setMessages(ms=>[...ms,m]);setToast(" Nachricht gesendet!");};
+  const handleDelMsg=id=>setMessages(ms=>ms.filter(m=>m.id!==id));
+
+  const openInbox=()=>{
+    setMessages(ms=>ms.map(m=>myListings.some(l=>l.id===m.listingId)?{...m,read:true}:m));
+    setShowInbox(true);
+  };
+
+  const openDetail=l=>{setSelected(l);setView("detail");window.scrollTo(0,0);};
+  const goBack=()=>{setView("list");setSelected(null);};
+
+  return<div style={{minHeight:"100vh",background:G}}>
+    <Toast msg={toast}/>
+    {showCreate&&<CreateModal onClose={()=>setShowCreate(false)} onSave={handleSave}/>}
+    {editL&&<CreateModal edit={editL} onClose={()=>setEditL(null)} onSave={handleEdit}/>}
+    {showContact&&selected&&<ContactModal l={selected} onClose={()=>setShowContact(false)} onSent={handleSent}/>}
+    {showInbox&&<Inbox myListings={myListings} messages={messages} onClose={()=>setShowInbox(false)} onDelMsg={handleDelMsg}/>}
+
+    {/* HEADER */}
+    <header style={{background:N,borderBottom:`3px solid ${A}`,position:"sticky",top:0,zIndex:500}}>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:64,gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",flexShrink:0}} onClick={goBack}>
+          <div style={{background:A,width:34,height:34,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}></div>
+          <span className="syne" style={{color:"#fff",fontSize:20}}>HandwerkBörse</span>
+          <span style={{background:"rgba(255,255,255,.1)",color:"#9CA3AF",fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:20,letterSpacing:.6}}>KOSTENLOS</span>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <button onClick={openInbox} style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.15)",color:"#fff",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:500,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}>
+             Postfach
+            {unread>0&&<span style={{background:A,color:"#fff",fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:20}}>{unread}</span>}
+          </button>
+          <Btn ch="＋ Inserat erstellen" sm onClick={()=>setShowCreate(true)}/>
+        </div>
+      </div>
+    </header>
+
+    {view==="detail"&&selected?
+      <main style={{paddingTop:20}}><Detail l={selected} msgs={messages} isMine={mineIds.includes(selected.id)} onBack={goBack} onContact={()=>setShowContact(true)} onEdit={l=>setEditL(l)} onDelete={handleDelete}/></main>
+    :
+      <main>
+        {/* HERO */}
+        <div style={{background:N,padding:"38px 20px 30px",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
+          <div style={{maxWidth:680,margin:"0 auto",textAlign:"center"}}>
+            <h1 className="syne" style={{color:"#fff",fontSize:30,marginBottom:8,lineHeight:1.2}}>Handwerker & Helfer in deiner Nähe</h1>
+            <p style={{color:"#9CA3AF",fontSize:15,marginBottom:22}}>Kostenlos inserieren · Direkt kontaktieren · Keine Gebühren</p>
+            <div style={{display:"flex",background:"#fff",borderRadius:10,overflow:"hidden",border:`2.5px solid ${A}`}}>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Elektriker, Umzug, Maler, Garten..." onKeyDown={e=>e.key==="Escape"&&setSearch("")} style={{flex:1,border:"none",padding:"14px 18px",fontSize:15,color:N,outline:"none",background:"transparent"}}/>
+              {search&&<button onClick={()=>setSearch("")} style={{background:"none",border:"none",padding:"0 12px",color:"#9B9690",cursor:"pointer",fontSize:20}}>×</button>}
+              <button style={{background:A,border:"none",color:"#fff",padding:"0 26px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Suchen</button>
+            </div>
+          </div>
+        </div>
+
+        {/* INFO STRIP */}
+        <div style={{background:A,padding:"9px 20px"}}>
+          <div style={{maxWidth:1100,margin:"0 auto",display:"flex",gap:24,justifyContent:"center",flexWrap:"wrap"}}>
+            {[["","Direktkontakt"],["","Telefon & E-Mail sichtbar"],["🆓","100% kostenlos"],["","Daten bleiben gespeichert"]].map(([i,t])=><span key={t} style={{color:"#fff",fontSize:13,fontWeight:500}}>{i} {t}</span>)}
+          </div>
+        </div>
+
+        {/* CATEGORY NAV */}
+        <div style={{background:"#fff",borderBottom:"1px solid #E8E4DD",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+          <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px",display:"flex",gap:0,whiteSpace:"nowrap"}}>
+            {CATS.map(c=>{const cnt=c.id==="all"?listings.length:listings.filter(l=>l.category===c.id).length;return<button key={c.id} onClick={()=>setCat(c.id)} style={{background:"none",border:"none",padding:"13px 12px",fontSize:13,fontWeight:cat===c.id?600:400,color:cat===c.id?A:"#6B6860",cursor:"pointer",borderBottom:cat===c.id?`2.5px solid ${A}`:"2.5px solid transparent",transition:"all .15s",whiteSpace:"nowrap"}}>{c.icon} {c.label}<span style={{fontSize:11,color:"#B8B4AD",marginLeft:4}}>({cnt})</span></button>;})}
+          </div>
+        </div>
+
+        {/* GRID */}
+        <div style={{maxWidth:1100,margin:"0 auto",padding:"22px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}>
+            <p style={{fontSize:14,color:"#6B6860"}}><strong style={{color:N}}>{filtered.length}</strong> Inserate{search&&<span style={{color:A}}> · „{search}"</span>}{cat!=="all"&&<span style={{color:A}}> · {CATS.find(c=>c.id===cat)?.label}</span>}</p>
+            <span style={{background:AL,color:A,fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:20}}>{listings.filter(l=>l.type==="auftrag").length} Aufträge · {listings.filter(l=>l.type==="angebot").length} Angebote</span>
+          </div>
+
+          {filtered.length===0?<div style={{textAlign:"center",padding:"70px 20px"}}>
+            <div style={{fontSize:52,marginBottom:14}}></div>
+            <h3 className="syne" style={{color:N,marginBottom:8,fontSize:20}}>Keine Ergebnisse</h3>
+            <p style={{color:"#6B6860",marginBottom:22}}>Andere Begriffe probieren oder selbst inserieren.</p>
+            <Btn ch="＋ Jetzt inserieren" onClick={()=>setShowCreate(true)}/>
+          </div>:<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
+            {filtered.map(l=><Card key={l.id} l={l} msgs={messages} onClick={openDetail}/>)}
+          </div>}
+
+        </div>
+
+        {/* CTA - full width */}
+        <div style={{background:"linear-gradient(135deg, #14213D 0%, #1e3a5f 100%)",padding:"80px 40px",textAlign:"center",position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:-60,right:-60,width:300,height:300,borderRadius:"50%",background:"rgba(232,130,12,.08)",pointerEvents:"none"}}/>
+          <div style={{position:"absolute",bottom:-80,left:-40,width:240,height:240,borderRadius:"50%",background:"rgba(232,130,12,.05)",pointerEvents:"none"}}/>
+          <div style={{position:"relative",maxWidth:620,margin:"0 auto"}}>
+            <span style={{display:"inline-block",background:"rgba(232,130,12,.15)",color:A,fontSize:12,fontWeight:600,padding:"5px 16px",borderRadius:20,border:"1px solid rgba(232,130,12,.25)",marginBottom:20,letterSpacing:.5}}>Kostenlos und sofort online</span>
+            <h2 style={{color:"#fff",fontSize:34,fontWeight:800,marginBottom:14,lineHeight:1.2,letterSpacing:"-.5px"}}>Deine Dienstleistung verdient mehr Sichtbarkeit</h2>
+            <p style={{color:"#8B9AB3",fontSize:16,lineHeight:1.8,marginBottom:32}}>Inseriere kostenlos, werde direkt von Kunden kontaktiert. Kein Account, keine Gebühren — einfach loslegen.</p>
+            <button onClick={()=>setShowCreate(true)} style={{background:A,color:"#fff",border:"none",borderRadius:10,padding:"15px 36px",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 8px 32px rgba(232,130,12,.35)",transition:"transform .15s,box-shadow .15s"}} onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 12px 40px rgba(232,130,12,.5)";}} onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 8px 32px rgba(232,130,12,.35)";}}>
+              Jetzt kostenlos inserieren
+            </button>
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <footer style={{background:"#0B1220"}}>
+          <div style={{maxWidth:1200,margin:"0 auto",padding:"64px 48px 0"}}>
+            <div style={{display:"grid",gridTemplateColumns:"2.2fr 1fr 1fr 1fr",gap:56,paddingBottom:56,borderBottom:"1px solid rgba(255,255,255,.06)"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+                  <div style={{background:A,width:40,height:40,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"#fff",fontSize:18}}>H</div>
+                  <span style={{color:"#fff",fontSize:22,fontWeight:800,letterSpacing:"-.5px"}}>HandwerkBörse</span>
+                </div>
+                <p style={{fontSize:14,color:"#5A6880",lineHeight:1.9,marginBottom:28,maxWidth:290}}>Die kostenlose Plattform für Handwerker, Helfer und alle die eine helfende Hand suchen. Direkt, einfach, ohne Gebühren.</p>
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {[["Inserate gesamt",listings.length],["Aufträge",listings.filter(l=>l.type==="auftrag").length],["Angebote",listings.filter(l=>l.type==="angebot").length]].map(([label,val])=>(
+                    <div key={label} style={{display:"flex",justifyContent:"space-between",maxWidth:200}}>
+                      <span style={{fontSize:13,color:"#5A6880"}}>{label}</span>
+                      <span style={{fontSize:13,fontWeight:700,color:A}}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p style={{fontSize:10,fontWeight:700,color:"#3A4A5A",textTransform:"uppercase",letterSpacing:1.8,marginBottom:22}}>Kategorien</p>
+                <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                  {CATS.filter(c=>c.id!=="all").map(c=>(
+                    <span key={c.id} onClick={()=>setCat(c.id)} style={{fontSize:14,color:"#5A6880",cursor:"pointer",transition:"color .15s"}} onMouseEnter={e=>e.currentTarget.style.color="#fff"} onMouseLeave={e=>e.currentTarget.style.color="#5A6880"}>{c.label}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p style={{fontSize:10,fontWeight:700,color:"#3A4A5A",textTransform:"uppercase",letterSpacing:1.8,marginBottom:22}}>Plattform</p>
+                <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                  {[["Inserat erstellen",()=>setShowCreate(true)],["Mein Postfach",openInbox],["Alle Inserate",()=>setCat("all")]].map(([label,fn])=>(
+                    <span key={label} onClick={fn} style={{fontSize:14,color:"#5A6880",cursor:"pointer",transition:"color .15s"}} onMouseEnter={e=>e.currentTarget.style.color="#fff"} onMouseLeave={e=>e.currentTarget.style.color="#5A6880"}>{label}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p style={{fontSize:10,fontWeight:700,color:"#3A4A5A",textTransform:"uppercase",letterSpacing:1.8,marginBottom:22}}>Rechtliches</p>
+                <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                  {["Datenschutz","Nutzungsbedingungen","Impressum","Kontakt"].map(t=>(
+                    <span key={t} style={{fontSize:14,color:"#5A6880",cursor:"pointer",transition:"color .15s"}} onMouseEnter={e=>e.currentTarget.style.color="#fff"} onMouseLeave={e=>e.currentTarget.style.color="#5A6880"}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{padding:"24px 0",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+              <p style={{fontSize:13,color:"#3A4A5A"}}>© {new Date().getFullYear()} HandwerkBörse. Alle Rechte vorbehalten.</p>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {["Kostenlos","Keine Registrierung","Lokal gespeichert"].map(t=>(
+                  <span key={t} style={{fontSize:12,color:"#3A4A5A",padding:"3px 10px",borderRadius:20,border:"1px solid #1E2D3D"}}>{t}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </footer>
+      </main>
+    }
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
